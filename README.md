@@ -22,12 +22,23 @@ Color is resolved in priority order:
    (`wproperties[file].Monitor0.schemecolor`).
 2. **Wallpaper default** — the author's default `schemecolor` from the wallpaper's
    `project.json`.
-3. **Sampled dominant color** — averaged from the wallpaper's `preview` image, ignoring
-   near-black/near-white pixels (fallback when no scheme color exists).
+3. **Sampled dominant color** — from the wallpaper's `preview` image, weighting pixels by
+   saturation (so vivid colors win and washed-out sky/gray is ignored). A scheme color of
+   `0 0 0` is treated as *unset* and falls through to sampling.
 
-The chosen color is darkened (configurable) so white bar text stays legible, then written
-between the `WP-SYNC` markers in `styles.css`. **Everything outside those markers is
-yours** — fonts, spacing, widget layout, the workspace bubble shape, etc.
+The chosen color is HSL-normalized (consistent lightness + minimum saturation) for a clean,
+legible result, then written between the `WP-SYNC` markers in `styles.css` — bar background
+plus a lighter **active-workspace bubble**. **Everything outside those markers is yours** —
+fonts, spacing, widget layout, the bubble shape, etc.
+
+### Write-back to Wallpaper Engine
+
+When the color comes from sampling (i.e. the wallpaper had no real scheme color), the tool
+also writes that color back into Wallpaper Engine's per-wallpaper scheme color, so WE's own
+theming matches your bar and the blank `0 0 0` wallpapers get filled in. This is on by
+default (`-WriteBackToWallpaperEngine`); it makes a one-time backup of WE's `config.json`
+and sanity-checks the edit before writing. Note: Wallpaper Engine may need a restart to
+apply the new scheme color to its *own* theming.
 
 ## Requirements
 
@@ -81,7 +92,10 @@ Drop [`start-hidden.vbs`](start-hidden.vbs) (edit the path inside) into your Sta
 | `-WeConfig`        | `C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\config.json` | Wallpaper Engine `config.json` |
 | `-User`            | *(auto-detected)*                                                       | Top-level user key inside the WE config |
 | `-StylesPath`      | `%USERPROFILE%\.config\yasb\styles.css`                                 | Your YASB stylesheet |
-| `-Darken`          | `0.55`                                                                  | 0–1 multiplier; lower = darker (keeps white text readable) |
+| `-Lightness`       | `0.32`                                                                  | Target lightness (0–1) the bar color is normalized to (keeps white text readable) |
+| `-Saturation`      | `0.55`                                                                  | Minimum saturation (0–1); boosts washed-out colors |
+| `-BlackThreshold`  | `12`                                                                    | Scheme colors darker than this (channel sum /765) are treated as unset → sample |
+| `-WriteBackToWallpaperEngine` | `$true`                                                      | Write the sampled color back into WE's scheme color (fills blank `0 0 0`) |
 | `-BackgroundAlpha` | `235`                                                                   | Bar background opacity, 0–255 |
 | `-Once`            | *(off)*                                                                 | Apply once and exit instead of watching |
 

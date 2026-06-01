@@ -13,9 +13,17 @@
     1. The schemecolor you saved for this wallpaper in Wallpaper Engine.
     2. The wallpaper author's default schemecolor (project.json).
     3. The dominant color sampled from the wallpaper's preview image (fallback).
+  A scheme color of "0 0 0" is treated as unset (the common case where the author
+  left it blank) and falls through to sampling.
 
-  The chosen color is darkened (so white text stays legible) and written between
-  the WP-SYNC markers in styles.css. Everything outside those markers is yours.
+  The chosen color is saturation-weighted and HSL-normalized for a clean, legible
+  result, then written between the WP-SYNC markers in styles.css (bar background +
+  a lighter active-workspace bubble). Everything outside those markers is yours.
+
+  When the color came from sampling, it is also written back into Wallpaper Engine's
+  per-wallpaper scheme color (-WriteBackToWallpaperEngine, on by default), so WE's own
+  theming matches and the blank "0 0 0" wallpapers get filled in. A one-time backup of
+  WE's config.json is made and the edit is sanity-checked before writing.
 
 .NOTES
   Repo: https://github.com/<you>/yasb-wallpaper-engine-color-sync
@@ -32,8 +40,22 @@ param(
   # Your YASB stylesheet. The script edits only the WP-SYNC managed block.
   [string]$StylesPath = "$env:USERPROFILE\.config\yasb\styles.css",
 
-  # 0.0-1.0 multiplier applied to the color so white text stays readable.
-  [double]$Darken = 0.55,
+  # Target lightness (0-1) the bar color is normalized to, so white text stays readable.
+  [double]$Lightness = 0.32,
+
+  # Minimum saturation (0-1); muddy/desaturated samples are boosted so the hue reads clearly.
+  # (Only used for the optional -SampleWhenNoScheme path.)
+  [double]$Saturation = 0.55,
+
+  # A scheme color whose channels sum below this (out of 765) is treated as "unset"
+  # and the preview is sampled instead. Wallpaper Engine stores "0 0 0" when the
+  # author left the scheme color blank, which is usually what it means.
+  [int]$BlackThreshold = 12,
+
+  # Also write the chosen color back into Wallpaper Engine's scheme color for this
+  # wallpaper (fills in the blank "0 0 0" ones so WE's own theming matches the bar).
+  # On by default; pass -WriteBackToWallpaperEngine:$false to disable.
+  [bool]$WriteBackToWallpaperEngine = $true,
 
   # Alpha (0-255) for the bar background (slight transparency looks nice).
   [int]$BackgroundAlpha = 235,
@@ -85,6 +107,41 @@ function Get-ProjectScheme([string]$wallpaperFile) {
   try { (Get-Content $pj -Raw | ConvertFrom-Json).general.properties.schemecolor.value } catch { $null }
 }
 
+# Write the chosen color back into WE's per-wallpaper scheme color ("r g b" floats),
+# so Wallpaper Engine's own theming matches the bar and the blank "0 0 0" gets filled.
+# Safe: backs up config.json once, sanity-checks the re-serialized JSON before writing.
+function Write-WeSchemeColor([string]$wallpaperFile, [string]$hex) {
+  try {
+    $r = [Convert]::ToInt32($hex.Substring(1,2),16) / 255.0
+    $g = [Convert]::ToInt32($hex.Substring(3,2),16) / 255.0
+    $b = [Convert]::ToInt32($hex.Substring(5,2),16) / 255.0
+    $scheme = '{0:0.000000} {1:0.000000} {2:0.000000}' -f $r, $g, $b
+    $orig = Get-Content $WeConfig -Raw -ErrorAction Stop
+    $j = $orig | ConvertFrom-Json
+    $u = Resolve-WeUser $j; if (-not $u) { return $false }
+    $wpc = $j.$u.general.wallpaperconfig
+    if (-not $wpc) { return $false }
+    if (-not $wpc.wproperties) { Add-Member -InputObject $wpc -NotePropertyName 'wproperties' -NotePropertyValue ([pscustomobject]@{}) -Force }
+    $entry = $wpc.wproperties.PSObject.Properties | Where-Object { $_.Name -eq $wallpaperFile } | Select-Object -First 1
+    if (-not $entry) {
+      Add-Member -InputObject $wpc.wproperties -NotePropertyName $wallpaperFile -NotePropertyValue ([pscustomobject]@{ Monitor0 = [pscustomobject]@{ schemecolor = $scheme } }) -Force
+    } elseif (-not $entry.Value.Monitor0) {
+      Add-Member -InputObject $entry.Value -NotePropertyName Monitor0 -NotePropertyValue ([pscustomobject]@{ schemecolor = $scheme }) -Force
+    } elseif ($entry.Value.Monitor0.PSObject.Properties.Name -contains 'schemecolor') {
+      $entry.Value.Monitor0.schemecolor = $scheme
+    } else {
+      Add-Member -InputObject $entry.Value.Monitor0 -NotePropertyName schemecolor -NotePropertyValue $scheme -Force
+    }
+    $new = $j | ConvertTo-Json -Depth 100 -Compress
+    # safety: bail if serialization looks lossy, and make sure it re-parses
+    if (-not $new -or $new.Length -lt ($orig.Length * 0.5)) { Log "WE write-back aborted (output too small)"; return $false }
+    $null = $new | ConvertFrom-Json
+    $bak = "$WeConfig.wpsync-backup.json"; if (-not (Test-Path $bak)) { Copy-Item $WeConfig $bak -ErrorAction SilentlyContinue }
+    [System.IO.File]::WriteAllText($WeConfig, $new, (New-Object System.Text.UTF8Encoding($false)))
+    return $true
+  } catch { Log "WE write-back failed: $_"; return $false }
+}
+
 function Find-PreviewImage([string]$wallpaperFile) {
   $dir = Split-Path $wallpaperFile -Parent
   if (-not (Test-Path $dir)) { return $null }
@@ -104,7 +161,7 @@ function Convert-SchemeToHex([string]$scheme) {
     $r = [int][math]::Round([double]$p[0] * 255)
     $g = [int][math]::Round([double]$p[1] * 255)
     $b = [int][math]::Round([double]$p[2] * 255)
-    if (($r + $g + $b) -lt 12) { return $null }   # skip near-black noise
+    if (($r + $g + $b) -lt $BlackThreshold) { return $null }   # "0 0 0" = unset -> caller will sample
     '#{0:X2}{1:X2}{2:X2}' -f $r, $g, $b
   } catch { $null }
 }
@@ -124,7 +181,7 @@ function Get-DominantHex([string]$imagePath) {
     $bmp.UnlockBits($data); $bmp.Dispose()
     $x0 = [int]($w * 0.10); $x1 = [int]($w * 0.90)
     $y0 = [int]($h * 0.15); $y1 = [int]($h * 0.85)
-    $r = 0; $gV = 0; $b = 0; $n = 0
+    $r = 0.0; $gV = 0.0; $b = 0.0; $tw = 0.0
     for ($yy = $y0; $yy -lt $y1; $yy++) {
       $row = $yy * $data.Stride
       for ($xx = $x0; $xx -lt $x1; $xx++) {
@@ -132,20 +189,57 @@ function Get-DominantHex([string]$imagePath) {
         $cb = $bytes[$off]; $cg = $bytes[$off+1]; $cr = $bytes[$off+2]   # BGRA
         $br = ($cr + $cg + $cb) / 3
         if ($br -lt 25 -or $br -gt 235) { continue }                    # drop near-black / near-white
-        $r += $cr; $gV += $cg; $b += $cb; $n++
+        # Weight each pixel by its saturation^2 so vivid colors dominate and
+        # washed-out sky / gray barely counts. This is what keeps the result
+        # "on-hue" (e.g. Kermit green) instead of a muddy whole-image average.
+        $mx = [math]::Max($cr, [math]::Max($cg, $cb)); $mn = [math]::Min($cr, [math]::Min($cg, $cb))
+        $sat = if ($mx -eq 0) { 0 } else { ($mx - $mn) / $mx }
+        $wt = $sat * $sat
+        $r += $cr * $wt; $gV += $cg * $wt; $b += $cb * $wt; $tw += $wt
       }
     }
-    if ($n -eq 0) { return $null }
-    '#{0:X2}{1:X2}{2:X2}' -f [int]($r/$n), [int]($gV/$n), [int]($b/$n)
+    if ($tw -le 0) { return $null }
+    '#{0:X2}{1:X2}{2:X2}' -f [int]($r/$tw), [int]($gV/$tw), [int]($b/$tw)
   } catch { $null }
 }
 
-function Apply-Darken([string]$hex) {
+function Convert-HueToRgb([double]$p, [double]$q, [double]$t) {
+  if ($t -lt 0) { $t += 1 }
+  if ($t -gt 1) { $t -= 1 }
+  if ($t -lt (1.0/6)) { return $p + ($q - $p) * 6 * $t }
+  if ($t -lt 0.5)     { return $q }
+  if ($t -lt (2.0/3)) { return $p + ($q - $p) * ((2.0/3) - $t) * 6 }
+  return $p
+}
+
+# Preserve the sampled hue, but force a consistent, vivid, text-legible bar color:
+# boost saturation to at least $Saturation and pin lightness to $Lightness.
+function Convert-ToVibrant([string]$hex, [double]$targetL = -1) {
   if (-not $hex) { return $null }
-  $r = [Convert]::ToInt32($hex.Substring(1,2),16)
-  $g = [Convert]::ToInt32($hex.Substring(3,2),16)
-  $b = [Convert]::ToInt32($hex.Substring(5,2),16)
-  '#{0:X2}{1:X2}{2:X2}' -f [int][math]::Round($r*$Darken), [int][math]::Round($g*$Darken), [int][math]::Round($b*$Darken)
+  $r = [Convert]::ToInt32($hex.Substring(1,2),16) / 255.0
+  $g = [Convert]::ToInt32($hex.Substring(3,2),16) / 255.0
+  $b = [Convert]::ToInt32($hex.Substring(5,2),16) / 255.0
+  $mx = [math]::Max($r,[math]::Max($g,$b)); $mn = [math]::Min($r,[math]::Min($g,$b))
+  $l = ($mx + $mn) / 2; $d = $mx - $mn
+  if ($d -eq 0) { $h = 0.0; $s = 0.0 }
+  else {
+    $s = if ($l -gt 0.5) { $d / (2 - $mx - $mn) } else { $d / ($mx + $mn) }
+    if     ($mx -eq $r) { $h = ((($g - $b) / $d) % 6) }
+    elseif ($mx -eq $g) { $h = ((($b - $r) / $d) + 2) }
+    else                { $h = ((($r - $g) / $d) + 4) }
+    $h = $h / 6.0; if ($h -lt 0) { $h += 1 }
+  }
+  $s = [math]::Max($s, $Saturation)                                # boost washed-out colors
+  $l = if ($targetL -ge 0) { $targetL } else { $Lightness }        # default: dark bar bg
+  if ($s -eq 0) { $r2 = $l; $g2 = $l; $b2 = $l }
+  else {
+    $q = if ($l -lt 0.5) { $l * (1 + $s) } else { $l + $s - $l * $s }
+    $p = 2 * $l - $q
+    $r2 = Convert-HueToRgb $p $q ($h + 1.0/3)
+    $g2 = Convert-HueToRgb $p $q $h
+    $b2 = Convert-HueToRgb $p $q ($h - 1.0/3)
+  }
+  '#{0:X2}{1:X2}{2:X2}' -f [int][math]::Round($r2*255), [int][math]::Round($g2*255), [int][math]::Round($b2*255)
 }
 
 function ConvertTo-Rgba([string]$hex, [int]$alpha) {
@@ -161,10 +255,10 @@ function ConvertTo-Rgba([string]$hex, [int]$alpha) {
 $MARK_START = '/* WP-SYNC:START  -- managed by yasb-wallpaper-engine-color-sync; edit shape/text outside this block */'
 $MARK_END   = '/* WP-SYNC:END */'
 
-function Set-YasbColor([string]$hex) {
+function Set-YasbColor([string]$barHex, [string]$accentHex) {
   if (-not (Test-Path $StylesPath)) { Log "styles.css not found: $StylesPath"; return $false }
-  $bg     = ConvertTo-Rgba $hex $BackgroundAlpha
-  $accent = $hex
+  $bg     = ConvertTo-Rgba $barHex $BackgroundAlpha
+  $accent = $accentHex
   $block  = @(
     $MARK_START
     ".yasb-bar { background-color: $bg; }"
@@ -196,20 +290,27 @@ function Update-Color {
   if (-not $wp) { return }
   if ($wp.File -eq $script:lastFile) { return }
 
-  $source = ''
-  $hex = Convert-SchemeToHex $wp.SavedScheme; if ($hex) { $source = 'saved-preset' }
-  if (-not $hex) { $hex = Convert-SchemeToHex (Get-ProjectScheme $wp.File); if ($hex) { $source = 'project.json' } }
+  $source = ''; $sampled = $false
+  $hex = Convert-SchemeToHex $wp.SavedScheme; if ($hex) { $source = 'saved-scheme' }
+  if (-not $hex) { $hex = Convert-SchemeToHex (Get-ProjectScheme $wp.File); if ($hex) { $source = 'project-scheme' } }
   if (-not $hex) {
     $preview = Find-PreviewImage $wp.File
-    if ($preview) { $hex = Get-DominantHex $preview; if ($hex) { $source = 'preview-sample' } }
+    if ($preview) { $hex = Get-DominantHex $preview; if ($hex) { $source = 'preview-sample'; $sampled = $true } }
   }
 
   $name = Split-Path (Split-Path $wp.File -Parent) -Leaf
   if ($hex) {
-    $hex = Apply-Darken $hex
-    if ($hex -ne $script:lastHex) {
-      if (Set-YasbColor $hex) { Log "$name  ->  $hex  ($source)"; $script:lastHex = $hex }
+    $barHex    = Convert-ToVibrant $hex
+    $accentHex = Convert-ToVibrant $hex ([math]::Min(0.62, $Lightness + 0.24))  # lighter bubble that pops on the bar
+    $script:lastFile = $wp.File   # set before write-back so our own config write doesn't re-trigger
+    if ($barHex -ne $script:lastHex) {
+      if (Set-YasbColor $barHex $accentHex) { Log "$name  ->  bar $barHex / active $accentHex  ($source)"; $script:lastHex = $barHex }
     }
+    # Fill in WE's blank ("0 0 0") scheme color with what we sampled, so WE matches the bar.
+    if ($sampled -and $WriteBackToWallpaperEngine) {
+      if (Write-WeSchemeColor $wp.File $barHex) { Log "  -> wrote scheme color $barHex back to Wallpaper Engine" }
+    }
+    return
   } else {
     Log "$name  ->  NO COLOR FOUND (left styles.css unchanged)"
   }
