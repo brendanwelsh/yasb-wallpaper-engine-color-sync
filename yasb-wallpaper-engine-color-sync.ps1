@@ -266,7 +266,8 @@ function Set-YasbColor([string]$barHex, [string]$accentHex) {
     $MARK_END
   ) -join "`n"
 
-  $css = Get-Content $StylesPath -Raw
+  $css = Get-Content $StylesPath -Raw -ErrorAction SilentlyContinue
+  if ([string]::IsNullOrWhiteSpace($css)) { Log "styles.css empty/unreadable right now; skipping write to avoid clobbering it"; return $false }
   $pattern = [regex]::Escape($MARK_START) + '.*?' + [regex]::Escape($MARK_END)
   if ([regex]::IsMatch($css, $pattern, 'Singleline')) {
     # MatchEvaluator returns the block verbatim (no $-substitution pitfalls).
@@ -275,8 +276,12 @@ function Set-YasbColor([string]$barHex, [string]$accentHex) {
   } else {
     $css = $css.TrimEnd() + "`n`n" + $block + "`n"
   }
-  # BOM-free UTF8 (yasb reads styles.css as UTF-8)
-  [System.IO.File]::WriteAllText($StylesPath, $css, (New-Object System.Text.UTF8Encoding($false)))
+  # Write atomically (temp then replace) so YASB never reads a half-written/empty file,
+  # and concurrent runs can't truncate it. BOM-free UTF8 (yasb reads styles.css as UTF-8).
+  $tmp = "$StylesPath.tmp"
+  [System.IO.File]::WriteAllText($tmp, $css, (New-Object System.Text.UTF8Encoding($false)))
+  [System.IO.File]::Copy($tmp, $StylesPath, $true)
+  Remove-Item $tmp -ErrorAction SilentlyContinue
   return $true
 }
 
