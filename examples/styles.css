@@ -1,0 +1,75 @@
+/*
+ * Example YASB stylesheet for yasb-wallpaper-engine-color-sync.
+ *
+ * Everything OUTSIDE the WP-SYNC block at the bottom is yours to edit (shape,
+ * fonts, spacing, text color). The tool only rewrites the colors inside the
+ * WP-SYNC block when your Wallpaper Engine wallpaper changes. Because all YASB
+ * bars share this one file, your top and bottom bars always match.
+ */
+
+* {
+    font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.yasb-bar {
+    /* background-color comes from the WP-SYNC block below */
+    border-radius: 0px;
+}
+
+.widget {
+    padding: 0 8px;
+}
+
+.widget .label {
+    color: #ffffff;
+}
+
+.active-window-widget .label {
+    color: #ffffff;
+}
+
+/* ── Komorebi workspaces: the active workspace "bubble" ─────────────────────
+   Shape lives here; its fill color is set in the WP-SYNC block so it tracks
+   the wallpaper. */
+.komorebi-workspaces {
+    padding: 0 4px;
+}
+.komorebi-workspaces .ws-btn {
+    padding: 2px 10px;
+    margin: 3px 3px;
+    border-radius: 10px;
+    background-color: transparent;
+    color: #ffffff;
+}
+.komorebi-workspaces .ws-btn.populated {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+.komorebi-workspaces .ws-btn.active {
+    /* background-color (the bubble fill) is set in the WP-SYNC block */
+    border-radius: 12px;
+    padding: 2px 12px;
+    color: #ffffff;
+}
+
+.komorebi-active-layout {
+    padding: 0 8px;
+}
+
+.clock-widget .label,
+.battery-widget .label,
+.cpu-widget .label,
+.memory-widget .label,
+.disk-widget .label,
+.volume-widget .label,
+.media-widget .label {
+    color: #ffffff;
+}
+
+/* ── WP-SYNC managed block ──────────────────────────────────────────────────
+   Auto-generated. The placeholder color below is replaced at runtime. */
+/* WP-SYNC:START  -- managed by yasb-wallpaper-engine-color-sync; edit shape/text outside this block */
+.yasb-bar { background-color: rgba(41, 42, 41, 0.92); }
+.komorebi-workspaces .ws-btn.active { background-color: #3a5a78; }
+/* WP-SYNC:END */

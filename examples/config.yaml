@@ -1,0 +1,73 @@
+# Minimal example: a TOP and BOTTOM YASB bar that both track the wallpaper.
+#
+# The trick: both bars share `class_name: yasb-bar`, so the single
+# `.yasb-bar { background-color: ... }` rule that the sync tool rewrites colors
+# BOTH bars identically — top and bottom always match.
+#
+# Drop this in ~/.config/yasb/config.yaml (or merge the `bars:` entries into yours)
+# and use the companion examples/styles.css. Then run the sync script.
+
+watch_stylesheet: true   # REQUIRED: lets the sync tool's CSS edits hot-reload
+watch_config: true
+debug: false
+
+bars:
+  top-bar:
+    enabled: true
+    screens: ['**']        # '**' = all monitors
+    class_name: yasb-bar
+    alignment: { position: top, align: center }
+    dimensions: { width: 100%, height: 34 }
+    widgets:
+      left:   [komorebi_workspaces, komorebi_active_layout, active_window]
+      center: [clock]
+      right:  [cpu, memory, volume]
+
+  bottom-bar:
+    enabled: true
+    screens: ['**']
+    class_name: yasb-bar   # same class -> same wallpaper color as the top bar
+    alignment: { position: bottom, align: center }
+    dimensions: { width: 100%, height: 30 }
+    widgets:
+      left:   [media]
+      center: []
+      right:  [systray]
+
+widgets:
+  komorebi_workspaces:
+    type: komorebi.workspaces.WorkspaceWidget
+    options:
+      label_workspace_btn: '{name}'
+      label_workspace_active_btn: '{name}'
+      label_workspace_populated_btn: '{name}'
+      label_default_name: '{index}'
+      hide_empty_workspaces: false
+      hide_if_offline: true
+  komorebi_active_layout:
+    type: komorebi.active_layout.ActiveLayoutWidget
+    options:
+      hide_if_offline: true
+      label: "{icon}"
+      layouts: [bsp, columns, rows, grid, vertical_stack, horizontal_stack]
+  active_window:
+    type: yasb.active_window.ActiveWindowWidget
+    options: { label: '{win[title]}', max_length: 48, label_no_window: '' }
+  clock:
+    type: yasb.clock.ClockWidget
+    options: { label: '{%H:%M}', label_alt: '{%a, %d %b %Y}' }
+  cpu:
+    type: yasb.cpu.CpuWidget
+    options: { label: "CPU {info[percent][total]}%" }
+  memory:
+    type: yasb.memory.MemoryWidget
+    options: { label: "RAM {virtual_mem_percent}%" }
+  volume:
+    type: yasb.volume.VolumeWidget
+    options: { label: '{icon}', label_alt: '{icon} {level}' }
+  media:
+    type: yasb.media.MediaWidget
+    options: { label: '{title} - {artist}', hide_empty: true, max_field_size: { label: 28 } }
+  systray:
+    type: yasb.systray.SystrayWidget
+    options: { class_name: systray }
