@@ -229,7 +229,9 @@ function Convert-ToVibrant([string]$hex, [double]$targetL = -1) {
     else                { $h = ((($r - $g) / $d) + 4) }
     $h = $h / 6.0; if ($h -lt 0) { $h += 1 }
   }
-  $s = [math]::Max($s, $Saturation)                                # boost washed-out colors
+  # Boost saturation ONLY for colors that actually have a hue. A gray input has no
+  # hue (h defaults to 0 = red), so forcing saturation would turn grays red — don't.
+  if ($d -gt 0) { $s = [math]::Max($s, $Saturation) }
   $l = if ($targetL -ge 0) { $targetL } else { $Lightness }        # default: dark bar bg
   if ($s -eq 0) { $r2 = $l; $g2 = $l; $b2 = $l }
   else {
