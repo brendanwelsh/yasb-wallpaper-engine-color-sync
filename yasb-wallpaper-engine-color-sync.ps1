@@ -268,8 +268,13 @@ function Set-YasbColor([string]$barHex, [string]$accentHex) {
     $MARK_END
   ) -join "`n"
 
-  $css = Get-Content $StylesPath -Raw -ErrorAction SilentlyContinue
+  # Read as UTF-8 explicitly. Get-Content -Raw defaults to ANSI on PowerShell 5.1, which
+  # garbles non-ASCII bytes and (read-garble-write each cycle) can balloon the file. Match
+  # the UTF-8 we write so the round-trip is lossless.
+  try { $css = [System.IO.File]::ReadAllText($StylesPath, [System.Text.UTF8Encoding]::new($false)) }
+  catch { Log "could not read styles.css; skipping"; return $false }
   if ([string]::IsNullOrWhiteSpace($css)) { Log "styles.css empty/unreadable right now; skipping write to avoid clobbering it"; return $false }
+  if ($css.Length -gt 1048576) { Log "styles.css unexpectedly large ($($css.Length) chars); skipping to avoid making it worse"; return $false }
   $pattern = [regex]::Escape($MARK_START) + '.*?' + [regex]::Escape($MARK_END)
   if ([regex]::IsMatch($css, $pattern, 'Singleline')) {
     # MatchEvaluator returns the block verbatim (no $-substitution pitfalls).

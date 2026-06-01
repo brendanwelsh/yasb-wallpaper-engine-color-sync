@@ -1,74 +1,72 @@
 /*
  * Example YASB stylesheet for yasb-wallpaper-engine-color-sync.
  *
- * Everything OUTSIDE the WP-SYNC block at the bottom is yours to edit (shape,
- * fonts, spacing, text color). The tool only rewrites the colors inside the
- * WP-SYNC block when your Wallpaper Engine wallpaper changes. Because all YASB
- * bars share this one file, your top and bottom bars always match.
+ * ASCII-only on purpose: non-ASCII comment characters can be garbled by tools that
+ * read/write with mismatched encodings. Colors in the WP-SYNC block at the bottom are
+ * managed automatically (bar background + active-workspace bubble); edit everything
+ * else freely. Because all YASB bars share this file, top and bottom bars match.
  */
 
 * {
     font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 600;
     color: #ffffff;
 }
 
 .yasb-bar {
-    /* background-color comes from the WP-SYNC block below */
-    border-radius: 0px;
+    padding: 0 10px;
 }
 
 .widget {
     padding: 0 8px;
 }
-
 .widget .label {
+    padding: 0 3px;
     color: #ffffff;
 }
 
-.active-window-widget .label {
-    color: #ffffff;
-}
-
-/* ── Komorebi workspaces: the active workspace "bubble" ─────────────────────
-   Shape lives here; its fill color is set in the WP-SYNC block so it tracks
-   the wallpaper. */
+/* Komorebi workspaces: the active workspace is a colored "bubble"
+   (its fill color is set in the WP-SYNC block so it tracks the wallpaper). */
 .komorebi-workspaces {
-    padding: 0 4px;
+    padding: 0 6px;
 }
 .komorebi-workspaces .ws-btn {
-    padding: 2px 10px;
-    margin: 3px 3px;
-    border-radius: 10px;
+    padding: 4px 12px;
+    margin: 4px 4px;
+    border-radius: 12px;
+    font-size: 15px;
     background-color: transparent;
     color: #ffffff;
 }
 .komorebi-workspaces .ws-btn.populated {
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(255, 255, 255, 0.12);
 }
 .komorebi-workspaces .ws-btn.active {
-    /* background-color (the bubble fill) is set in the WP-SYNC block */
-    border-radius: 12px;
-    padding: 2px 12px;
+    border-radius: 14px;
+    padding: 4px 16px;
     color: #ffffff;
 }
 
-.komorebi-active-layout {
-    padding: 0 8px;
-}
+.komorebi-active-layout { padding: 0 10px; }
+.home-widget { padding: 0 12px; font-size: 17px; }
+.active-window-widget .label { padding: 0 6px; }
+.systray { padding: 0 6px; }
 
 .clock-widget .label,
 .battery-widget .label,
 .cpu-widget .label,
 .memory-widget .label,
-.disk-widget .label,
 .volume-widget .label,
-.media-widget .label {
+.media-widget .label,
+.microphone-widget .label,
+.weather-widget .label,
+.notification-widget .label,
+.power-menu-widget .label {
+    padding: 0 4px;
     color: #ffffff;
 }
 
-/* ── WP-SYNC managed block ──────────────────────────────────────────────────
-   Auto-generated. The placeholder color below is replaced at runtime. */
 /* WP-SYNC:START  -- managed by yasb-wallpaper-engine-color-sync; edit shape/text outside this block */
 .yasb-bar { background-color: rgba(41, 42, 41, 0.92); }
 .komorebi-workspaces .ws-btn.active { background-color: #3a5a78; }
