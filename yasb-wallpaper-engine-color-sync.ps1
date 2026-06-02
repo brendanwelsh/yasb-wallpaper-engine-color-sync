@@ -330,8 +330,14 @@ function Set-WindowsAccent([string]$hex) {
     $factors=@(1.75,1.5,1.25,1.0,0.8,0.65,0.5,0.4); $pb=New-Object System.Collections.Generic.List[byte]
     foreach($f in $factors){ $pb.Add([byte][Math]::Min(255,[int]($r*$f)));$pb.Add([byte][Math]::Min(255,[int]($g*$f)));$pb.Add([byte][Math]::Min(255,[int]($b*$f)));$pb.Add([byte]255) }
     Set-ItemProperty $acc -Name AccentPalette -Value ([byte[]]$pb.ToArray()) -Type Binary
-    Set-ItemProperty $per -Name ColorPrevalence -Value 1 -Type DWord   # show accent on taskbar/Start
-    [WinBroadcast]::ColorSet()   # tell explorer to re-read the accent (no restart)
+    # Toggle ColorPrevalence off->on: this is what actually forces the Win11 taskbar to
+    # repaint with the new accent (a plain broadcast alone usually doesn't take).
+    Set-ItemProperty $per -Name ColorPrevalence -Value 0 -Type DWord
+    try { [WinBroadcast]::ColorSet() } catch {}
+    Start-Sleep -Milliseconds 400
+    Set-ItemProperty $per -Name ColorPrevalence -Value 1 -Type DWord
+    try { [WinBroadcast]::ColorSet() } catch {}
+    Log "set Windows accent -> $hex"
   } catch { Log "set Windows accent failed: $_" }
 }
 
