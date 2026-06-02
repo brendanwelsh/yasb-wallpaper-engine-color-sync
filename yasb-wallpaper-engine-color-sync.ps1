@@ -43,10 +43,13 @@ param(
   # Target lightness (0-1) the bar color is normalized to, so white text stays readable.
   [double]$Lightness = 0.32,
 
-  # Minimum saturation (0-1). Default 0 = keep colors at their natural (often muted)
-  # saturation, so a near-gray scheme stays dull instead of being punched into a vivid
-  # hue. Raise it (e.g. 0.4) if you want bolder bar colors.
-  [double]$Saturation = 0.0,
+  # Minimum saturation (0-1), applied ONLY to inputs with real chroma (see
+  # ChromaThreshold). Vivid wallpapers get bolder bars; near-grays stay muted.
+  [double]$Saturation = 0.6,
+
+  # Only boost saturation when (max-min)/255 of the color exceeds this; near-grays
+  # fall below it and are left dull (avoids tinting a gray wallpaper a hue).
+  [double]$ChromaThreshold = 0.10,
 
   # A scheme color whose channels sum below this (out of 765) is treated as "unset"
   # and the preview is sampled instead. Wallpaper Engine stores "0 0 0" when the
@@ -245,7 +248,7 @@ function Convert-ToVibrant([string]$hex, [double]$targetL = -1) {
   }
   # Boost saturation ONLY for colors that actually have a hue. A gray input has no
   # hue (h defaults to 0 = red), so forcing saturation would turn grays red — don't.
-  if ($d -gt 0) { $s = [math]::Max($s, $Saturation) }
+  if ($d -gt $ChromaThreshold) { $s = [math]::Max($s, $Saturation) }   # boost colored inputs; near-grays stay dull
   $l = if ($targetL -ge 0) { $targetL } else { $Lightness }        # default: dark bar bg
   if ($s -eq 0) { $r2 = $l; $g2 = $l; $b2 = $l }
   else {

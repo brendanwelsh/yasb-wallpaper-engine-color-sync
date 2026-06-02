@@ -8,7 +8,8 @@
  */
 
 * {
-    font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+    /* text -> Segoe; Segoe Fluent Icons covers volume/mic/power glyphs; Nerd Font covers the rest */
+    font-family: "Segoe UI Variable", "Segoe Fluent Icons", "JetBrainsMono NFP", sans-serif;
     font-size: 15px;
     font-weight: 600;
     color: #ffffff;
