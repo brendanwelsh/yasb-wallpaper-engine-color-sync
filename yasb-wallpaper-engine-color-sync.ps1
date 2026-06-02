@@ -62,9 +62,11 @@ param(
   [bool]$WriteBackToWallpaperEngine = $true,
 
   # Alpha (0-255) for the bar background (slight transparency looks nice).
-  # Also set the Windows accent color (so the taskbar + titlebars match the bar).
-  # Requires "Show accent color on Start and taskbar" (ColorPrevalence) which this sets.
-  [bool]$SetWindowsAccent = $true,
+  # Also set the Windows accent color (title bars; the taskbar only honors it on some
+  # builds). OFF by default: toggling ColorPrevalence + broadcasting a color change makes
+  # tiling WMs (komorebi) re-tile every window, which shifts your layout on each wallpaper
+  # change. Enable only if your taskbar actually takes the accent and the retile is OK.
+  [bool]$SetWindowsAccent = $false,
 
   [int]$BackgroundAlpha = 235,
 
