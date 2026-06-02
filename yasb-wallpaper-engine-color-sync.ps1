@@ -59,6 +59,10 @@ param(
   [bool]$WriteBackToWallpaperEngine = $true,
 
   # Alpha (0-255) for the bar background (slight transparency looks nice).
+  # Also set the Windows accent color (so the taskbar + titlebars match the bar).
+  # Requires "Show accent color on Start and taskbar" (ColorPrevalence) which this sets.
+  [bool]$SetWindowsAccent = $true,
+
   [int]$BackgroundAlpha = 235,
 
   # Run once and exit instead of watching for changes.
@@ -68,6 +72,15 @@ param(
 )
 
 Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinBroadcast {
+    [DllImport("user32.dll", CharSet=CharSet.Auto)]
+    static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam, uint flags, uint timeout, out IntPtr result);
+    public static void ColorSet() { IntPtr r; SendMessageTimeout((IntPtr)0xffff, 0x1A, IntPtr.Zero, "ImmersiveColorSet", 2, 300, out r); }
+}
+"@ -ErrorAction SilentlyContinue
 
 function Log([string]$msg) {
   $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $msg"
@@ -293,6 +306,32 @@ function Set-YasbColor([string]$barHex, [string]$accentHex) {
   return $true
 }
 
+# --- Apply to the Windows accent color (taskbar + titlebars) ------------------
+
+function Set-WindowsAccent([string]$hex) {
+  if (-not $hex) { return }
+  try {
+    $r=[Convert]::ToInt32($hex.Substring(1,2),16); $g=[Convert]::ToInt32($hex.Substring(3,2),16); $b=[Convert]::ToInt32($hex.Substring(5,2),16)
+    $abgr=([uint32]255*16777216)+([uint32]$b*65536)+([uint32]$g*256)+[uint32]$r
+    $argb=([uint32]255*16777216)+([uint32]$r*65536)+([uint32]$g*256)+[uint32]$b
+    $abgrI=[BitConverter]::ToInt32([BitConverter]::GetBytes($abgr),0)
+    $argbI=[BitConverter]::ToInt32([BitConverter]::GetBytes($argb),0)
+    $dwm='HKCU:\Software\Microsoft\Windows\DWM'
+    $acc='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Accent'
+    $per='HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+    Set-ItemProperty $dwm -Name AccentColor -Value $abgrI -Type DWord
+    Set-ItemProperty $dwm -Name ColorizationColor -Value $argbI -Type DWord
+    Set-ItemProperty $dwm -Name ColorizationAfterglow -Value $argbI -Type DWord
+    Set-ItemProperty $acc -Name AccentColorMenu -Value $abgrI -Type DWord
+    # 8-shade palette (light -> dark) so taskbar/start pick a sensible tone
+    $factors=@(1.75,1.5,1.25,1.0,0.8,0.65,0.5,0.4); $pb=New-Object System.Collections.Generic.List[byte]
+    foreach($f in $factors){ $pb.Add([byte][Math]::Min(255,[int]($r*$f)));$pb.Add([byte][Math]::Min(255,[int]($g*$f)));$pb.Add([byte][Math]::Min(255,[int]($b*$f)));$pb.Add([byte]255) }
+    Set-ItemProperty $acc -Name AccentPalette -Value ([byte[]]$pb.ToArray()) -Type Binary
+    Set-ItemProperty $per -Name ColorPrevalence -Value 1 -Type DWord   # show accent on taskbar/Start
+    [WinBroadcast]::ColorSet()   # tell explorer to re-read the accent (no restart)
+  } catch { Log "set Windows accent failed: $_" }
+}
+
 # --- Main --------------------------------------------------------------------
 
 $script:lastFile = ''
@@ -318,6 +357,7 @@ function Update-Color {
     $script:lastFile = $wp.File   # set before write-back so our own config write doesn't re-trigger
     if ($barHex -ne $script:lastHex) {
       if (Set-YasbColor $barHex $accentHex) { Log "$name  ->  bar $barHex / active $accentHex  ($source)"; $script:lastHex = $barHex }
+      if ($SetWindowsAccent) { Set-WindowsAccent $barHex }
     }
     # Fill in WE's blank ("0 0 0") scheme color with what we sampled, so WE matches the bar.
     if ($sampled -and $WriteBackToWallpaperEngine) {

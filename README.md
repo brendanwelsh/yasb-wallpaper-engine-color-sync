@@ -93,11 +93,20 @@ Drop [`start-hidden.vbs`](start-hidden.vbs) (edit the path inside) into your Sta
 | `-User`            | *(auto-detected)*                                                       | Top-level user key inside the WE config |
 | `-StylesPath`      | `%USERPROFILE%\.config\yasb\styles.css`                                 | Your YASB stylesheet |
 | `-Lightness`       | `0.32`                                                                  | Target lightness (0–1) the bar color is normalized to (keeps white text readable) |
-| `-Saturation`      | `0.55`                                                                  | Minimum saturation (0–1); boosts washed-out colors |
+| `-Saturation`      | `0.0`                                                                   | Minimum saturation (0–1). `0` keeps colors at their natural (often muted) saturation; raise for bolder bars |
 | `-BlackThreshold`  | `12`                                                                    | Scheme colors darker than this (channel sum /765) are treated as unset → sample |
 | `-WriteBackToWallpaperEngine` | `$true`                                                      | Write the sampled color back into WE's scheme color (fills blank `0 0 0`) |
+| `-SetWindowsAccent` | `$true`                                                                | Also set the Windows accent color so the **taskbar + titlebars** match the bar |
 | `-BackgroundAlpha` | `235`                                                                   | Bar background opacity, 0–255 |
 | `-Once`            | *(off)*                                                                 | Apply once and exit instead of watching |
+
+## Windows taskbar / accent
+
+With `-SetWindowsAccent` (on by default) the tool also writes the Windows accent color
+(DWM + Explorer accent palette) and broadcasts `ImmersiveColorSet`, so the **taskbar and
+window titlebars re-tint to match** — no Explorer restart. It enables "show accent color on
+Start and taskbar" (`ColorPrevalence`). Pass `-SetWindowsAccent:$false` to leave Windows
+colors alone. Note: the Windows accent is system-wide (not taskbar-only).
 
 ## Notes
 
