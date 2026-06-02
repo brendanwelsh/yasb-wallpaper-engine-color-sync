@@ -43,9 +43,10 @@ param(
   # Target lightness (0-1) the bar color is normalized to, so white text stays readable.
   [double]$Lightness = 0.32,
 
-  # Minimum saturation (0-1); muddy/desaturated samples are boosted so the hue reads clearly.
-  # (Only used for the optional -SampleWhenNoScheme path.)
-  [double]$Saturation = 0.55,
+  # Minimum saturation (0-1). Default 0 = keep colors at their natural (often muted)
+  # saturation, so a near-gray scheme stays dull instead of being punched into a vivid
+  # hue. Raise it (e.g. 0.4) if you want bolder bar colors.
+  [double]$Saturation = 0.0,
 
   # A scheme color whose channels sum below this (out of 765) is treated as "unset"
   # and the preview is sampled instead. Wallpaper Engine stores "0 0 0" when the

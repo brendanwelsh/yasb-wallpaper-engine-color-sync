@@ -67,6 +67,38 @@
     color: #ffffff;
 }
 
+/* Right-click context menus + checkbox menus (Qt pseudo-elements need explicit padding) */
+.context-menu, .context-menu .menu-checkbox {
+    background-color: rgba(32, 32, 32, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px 4px;
+    font-size: 14px;
+    color: #ffffff;
+}
+.context-menu::item, .context-menu .menu-checkbox {
+    background-color: transparent;
+    padding: 8px 18px;
+    margin: 2px 6px;
+    border-radius: 6px;
+    min-width: 150px;
+}
+.context-menu::item:selected, .context-menu::item:pressed, .context-menu .menu-checkbox:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+.context-menu::item:disabled { color: #888888; }
+.context-menu::separator { height: 1px; background-color: rgba(255, 255, 255, 0.12); margin: 6px 10px; }
+.context-menu::right-arrow { width: 8px; height: 8px; padding-right: 18px; }
+
+.tooltip {
+    background-color: rgba(32, 32, 32, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #ffffff;
+}
+
 /* WP-SYNC:START  -- managed by yasb-wallpaper-engine-color-sync; edit shape/text outside this block */
 .yasb-bar { background-color: rgba(41, 42, 41, 0.92); }
 .komorebi-workspaces .ws-btn.active { background-color: #3a5a78; }
