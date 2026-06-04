@@ -40,6 +40,11 @@ param(
   # Your YASB stylesheet. The script edits only the WP-SYNC managed block.
   [string]$StylesPath = "$env:USERPROFILE\.config\yasb\styles.css",
 
+  # Optional: TranslucentTB (Store) settings.json. When present, the taskbar is re-tinted
+  # to match the bar on each wallpaper change (TranslucentTB hot-reloads on file change).
+  # The package family name is identical for every Store install.
+  [string]$TranslucentTBSettings = "$env:LOCALAPPDATA\Packages\28017CharlesMilette.TranslucentTB_v826wp6bftszj\RoamingState\settings.json",
+
   # Target lightness (0-1) the bar color is normalized to, so white text stays readable.
   [double]$Lightness = 0.32,
 
@@ -311,6 +316,23 @@ function Set-YasbColor([string]$barHex, [string]$accentHex) {
   return $true
 }
 
+# --- Apply to the taskbar via TranslucentTB -----------------------------------
+
+# TranslucentTB uses #RRGGBBAA (alpha LAST). Rewrites only the desktop_appearance color
+# to a solid version of $hex; TranslucentTB watches the file and re-tints instantly.
+function Set-TaskbarColor([string]$hex) {
+  if (-not $hex -or -not (Test-Path $TranslucentTBSettings)) { return }
+  try {
+    $rgba = '#' + $hex.TrimStart('#') + 'FF'
+    $json = [System.IO.File]::ReadAllText($TranslucentTBSettings, [System.Text.UTF8Encoding]::new($false))
+    $pattern = '("desktop_appearance"\s*:\s*\{[^}]*?"color"\s*:\s*")#?[0-9A-Fa-f]{6,8}(")'
+    if (-not [regex]::IsMatch($json, $pattern, 'Singleline')) { return }
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] { param($m) $m.Groups[1].Value + $rgba + $m.Groups[2].Value }
+    $json = [regex]::Replace($json, $pattern, $evaluator, 'Singleline')
+    [System.IO.File]::WriteAllText($TranslucentTBSettings, $json, [System.Text.UTF8Encoding]::new($false))
+  } catch { Log "set taskbar color failed: $_" }
+}
+
 # --- Apply to the Windows accent color (taskbar + titlebars) ------------------
 
 function Set-WindowsAccent([string]$hex) {
@@ -368,7 +390,8 @@ function Update-Color {
     $script:lastFile = $wp.File   # set before write-back so our own config write doesn't re-trigger
     if ($barHex -ne $script:lastHex) {
       if (Set-YasbColor $barHex $accentHex) { Log "$name  ->  bar $barHex / active $accentHex  ($source)"; $script:lastHex = $barHex }
-      if ($SetWindowsAccent) { Set-WindowsAccent $barHex }
+      Set-TaskbarColor $barHex
+      if ($SetWindowsAccent) { Set-WindowsAccent $accentHex }   # brighter shade so the dark-mode taskbar reads as a clearer color
     }
     # Fill in WE's blank ("0 0 0") scheme color with what we sampled, so WE matches the bar.
     if ($sampled -and $WriteBackToWallpaperEngine) {
