@@ -47,6 +47,9 @@ apply the new scheme color to its *own* theming.
 - [YASB](https://github.com/amnweb/yasb) (`winget install AmN.yasb`)
 - [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/) (Steam)
 - Windows PowerShell 5.1+ (built in) — no extra modules
+- **Only if you want the matching taskbar:** [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB)
+  (`winget install CharlesMilette.TranslucentTB`) — **you must set its `desktop_appearance.accent`
+  to `opaque` once** for the tool to drive the color. See [Matching the Windows taskbar](#matching-the-windows-taskbar-translucenttb).
 
 ## Setup
 
