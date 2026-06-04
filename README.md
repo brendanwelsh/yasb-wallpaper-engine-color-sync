@@ -5,7 +5,8 @@ your active [Wallpaper Engine](https://www.wallpaperengine.io/) wallpaper.
 
 Change your wallpaper, and your bar re-colors to match — instantly. Because every YASB
 bar shares one `styles.css`, your **top and bottom bars stay perfectly in sync** with no
-extra work.
+extra work. It can also re-tint the **Windows taskbar** to match, via
+[TranslucentTB](#matching-the-windows-taskbar-translucenttb).
 
 ![demo placeholder](docs/demo.gif)
 
@@ -93,20 +94,45 @@ Drop [`start-hidden.vbs`](start-hidden.vbs) (edit the path inside) into your Sta
 | `-User`            | *(auto-detected)*                                                       | Top-level user key inside the WE config |
 | `-StylesPath`      | `%USERPROFILE%\.config\yasb\styles.css`                                 | Your YASB stylesheet |
 | `-Lightness`       | `0.32`                                                                  | Target lightness (0–1) the bar color is normalized to (keeps white text readable) |
-| `-Saturation`      | `0.0`                                                                   | Minimum saturation (0–1). `0` keeps colors at their natural (often muted) saturation; raise for bolder bars |
+| `-Saturation`      | `0.6`                                                                   | Minimum saturation (0–1), applied only to colors with real chroma (see `-ChromaThreshold`); `0` keeps everything muted |
+| `-ChromaThreshold` | `0.10`                                                                  | Only boost saturation when the color is clearly colored — near-grays stay muted instead of being tinted a hue |
 | `-BlackThreshold`  | `12`                                                                    | Scheme colors darker than this (channel sum /765) are treated as unset → sample |
 | `-WriteBackToWallpaperEngine` | `$true`                                                      | Write the sampled color back into WE's scheme color (fills blank `0 0 0`) |
-| `-SetWindowsAccent` | `$true`                                                                | Also set the Windows accent color so the **taskbar + titlebars** match the bar |
+| `-TranslucentTBSettings` | *(Store install path)*                                            | TranslucentTB `settings.json` — when it exists, the **taskbar** is re-tinted to match the bar |
+| `-SetWindowsAccent` | `$false`                                                               | Set the Windows accent (title bars). Off because it can't reliably color the Win11 taskbar and makes tiling WMs re-tile windows |
 | `-BackgroundAlpha` | `235`                                                                   | Bar background opacity, 0–255 |
 | `-Once`            | *(off)*                                                                 | Apply once and exit instead of watching |
 
-## Windows taskbar / accent
+## Matching the Windows taskbar (TranslucentTB)
 
-With `-SetWindowsAccent` (on by default) the tool also writes the Windows accent color
-(DWM + Explorer accent palette) and broadcasts `ImmersiveColorSet`, so the **taskbar and
-window titlebars re-tint to match** — no Explorer restart. It enables "show accent color on
-Start and taskbar" (`ColorPrevalence`). Pass `-SetWindowsAccent:$false` to leave Windows
-colors alone. Note: the Windows accent is system-wide (not taskbar-only).
+Windows 11 won't reliably let you color the taskbar itself: it's translucent (so it mostly
+just shows the wallpaper *through* it), and Windows resets any accent value you write. The
+robust fix is [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB) (free, Microsoft
+Store), which **owns** the taskbar background so the color actually holds.
+
+1. Install + run it once: `winget install CharlesMilette.TranslucentTB`
+2. In its `settings.json`
+   (`%LOCALAPPDATA%\Packages\28017CharlesMilette.TranslucentTB_*\RoamingState\settings.json`),
+   set the desktop appearance to a solid color:
+
+   ```jsonc
+   "desktop_appearance": { "accent": "opaque", "color": "#5B8321FF", ... }
+   ```
+   > TranslucentTB colors are **`#RRGGBBAA`** — alpha is **last**, not first.
+
+3. That's it — this script (via `-TranslucentTBSettings`, which defaults to the Store path)
+   rewrites `desktop_appearance.color` to the bar's color on every wallpaper change, and
+   TranslucentTB hot-reloads. So the **taskbar tracks the wallpaper right alongside the bar**.
+
+Add a Startup shortcut for TranslucentTB (and the watcher) so it all comes back at login.
+
+### A note on the Windows accent (`-SetWindowsAccent`, off by default)
+
+Setting the Windows accent colors your **title bars** to match, but it does **not** reliably
+color the Win11 taskbar (see above), and applying it — toggling `ColorPrevalence` and
+broadcasting `ImmersiveColorSet` — makes tiling WMs like **komorebi re-tile every window** on
+each change. It's off by default for that reason; enable it only if you want the title-bar
+tint and don't mind the re-tile.
 
 ## Notes
 
