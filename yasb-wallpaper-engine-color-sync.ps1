@@ -26,7 +26,7 @@
   WE's config.json is made and the edit is sanity-checked before writing.
 
 .NOTES
-  Repo: https://github.com/<you>/yasb-wallpaper-engine-color-sync
+  Repo: https://github.com/brendanwelsh/yasb-wallpaper-engine-color-sync
   License: MIT
 #>
 [CmdletBinding()]

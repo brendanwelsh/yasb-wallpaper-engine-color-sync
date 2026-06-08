@@ -3,12 +3,30 @@
 Automatically tint your [YASB](https://github.com/amnweb/yasb) status bar(s) to match
 your active [Wallpaper Engine](https://www.wallpaperengine.io/) wallpaper.
 
-Change your wallpaper, and your bar re-colors to match — instantly. Because every YASB
-bar shares one `styles.css`, your **top and bottom bars stay perfectly in sync** with no
-extra work. It can also re-tint the **Windows taskbar** to match, via
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6)
+![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE)
+
+Change your wallpaper, and your bar re-colors to match — in about a second. Because every
+YASB bar shares one `styles.css`, your **top and bottom bars stay perfectly in sync** with
+no extra work. It can also re-tint the **Windows taskbar** to match, via
 [TranslucentTB](#matching-the-windows-taskbar-translucenttb).
 
-![demo placeholder](docs/demo.gif)
+<!-- Replace docs/demo.gif with a real screen capture: switch wallpapers in Wallpaper Engine
+     and show the bar (and taskbar) re-tinting within ~1s. -->
+![Demo: the YASB bar re-tinting to match a Wallpaper Engine wallpaper](docs/demo.gif)
+
+## Features
+
+- 🎨 **Automatic** — switch wallpaper, the bar follows. No clicking, no manual hex codes.
+- 🧭 **Smart color pick** — saved scheme color → wallpaper default → saturation-weighted
+  sample of the preview image, then HSL-normalized so white text stays legible.
+- 🪟 **One file, all bars** — every YASB bar shares `styles.css`, so top/bottom bars match.
+- 🧱 **Non-destructive** — only edits a marked `WP-SYNC` block; the rest of your stylesheet
+  is yours.
+- 🟩 **Taskbar too** *(optional)* — drives [TranslucentTB](#matching-the-windows-taskbar-translucenttb)
+  so the Windows taskbar tracks the wallpaper alongside the bar.
+- ⚡ **Idle-cheap** — event-driven via `FileSystemWatcher`; no polling, ~0% CPU at rest.
 
 ## How it works
 
@@ -43,15 +61,32 @@ apply the new scheme color to its *own* theming.
 
 ## Requirements
 
-- Windows
+- Windows + Windows PowerShell 5.1 (built in) or PowerShell 7 — no extra modules
 - [YASB](https://github.com/amnweb/yasb) (`winget install AmN.yasb`)
 - [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/) (Steam)
-- Windows PowerShell 5.1+ (built in) — no extra modules
 - **Only if you want the matching taskbar:** [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB)
-  (`winget install CharlesMilette.TranslucentTB`) — **you must set its `desktop_appearance.accent`
-  to `opaque` once** for the tool to drive the color. See [Matching the Windows taskbar](#matching-the-windows-taskbar-translucenttb).
+  (`winget install CharlesMilette.TranslucentTB`) — and set its `desktop_appearance.accent`
+  to `opaque` once (see [Matching the Windows taskbar](#matching-the-windows-taskbar-translucenttb)).
+
+## Install
+
+```powershell
+git clone https://github.com/brendanwelsh/yasb-wallpaper-engine-color-sync
+cd yasb-wallpaper-engine-color-sync
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+`install.ps1` registers the watcher to start hidden at every login (a shortcut in your
+Startup folder, pointed at this repo automatically) and starts it for the current session.
+Switch wallpapers and watch the bar follow. Re-running is safe.
+
+- Register for login **without** starting it now: `install.ps1 -NoStart`
+- Prefer to do it by hand, or just try it first? See [Setup](#setup) and
+  [Run at login](#run-at-login-hidden) below.
 
 ## Setup
+
+`install.ps1` handles the login shortcut, but you still need YASB itself wired up:
 
 1. **Enable hot-reload** in `~/.config/yasb/config.yaml`:
 
@@ -72,28 +107,32 @@ apply the new scheme color to its *own* theming.
 
    (If you skip this, the script appends the block automatically on first run.)
 
-3. **Run it once** to verify:
+## Usage
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\yasb-wallpaper-engine-color-sync.ps1 -Once -Verbose
-   ```
+Run it once to verify (writes the color, prints what it did, exits):
 
-4. **Run it for real** (watches until you close it):
+```powershell
+powershell -ExecutionPolicy Bypass -File .\yasb-wallpaper-engine-color-sync.ps1 -Once -Verbose
+```
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\yasb-wallpaper-engine-color-sync.ps1
-   ```
+Run it as a watcher (stays up, re-tints on every wallpaper change; Ctrl+C to stop):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\yasb-wallpaper-engine-color-sync.ps1
+```
 
 ## Run at login (hidden)
 
-Drop [`start-hidden.vbs`](start-hidden.vbs) (edit the path inside) into your Startup folder
-(`shell:startup`). It launches the watcher with no console window.
+`install.ps1` already does this. To set it up by hand instead, edit the `SCRIPT` path inside
+[`start-hidden.vbs`](start-hidden.vbs) to point at `yasb-wallpaper-engine-color-sync.ps1` on
+your machine, then drop a shortcut to the `.vbs` into your Startup folder (`Win+R` →
+`shell:startup`). It launches the watcher with no console window.
 
 ## Options
 
 | Parameter          | Default                                                                 | Description |
 |--------------------|-------------------------------------------------------------------------|-------------|
-| `-WeConfig`        | `C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\config.json` | Wallpaper Engine `config.json` |
+| `-WeConfig`        | `…\Steam\steamapps\common\wallpaper_engine\config.json`                 | Wallpaper Engine `config.json`. Override if Steam is on another drive/library |
 | `-User`            | *(auto-detected)*                                                       | Top-level user key inside the WE config |
 | `-StylesPath`      | `%USERPROFILE%\.config\yasb\styles.css`                                 | Your YASB stylesheet |
 | `-Lightness`       | `0.32`                                                                  | Target lightness (0–1) the bar color is normalized to (keeps white text readable) |
@@ -105,6 +144,7 @@ Drop [`start-hidden.vbs`](start-hidden.vbs) (edit the path inside) into your Sta
 | `-SetWindowsAccent` | `$false`                                                               | Set the Windows accent (title bars). Off because it can't reliably color the Win11 taskbar and makes tiling WMs re-tile windows |
 | `-BackgroundAlpha` | `235`                                                                   | Bar background opacity, 0–255 |
 | `-Once`            | *(off)*                                                                 | Apply once and exit instead of watching |
+| `-LogFile`         | `%USERPROFILE%\.config\yasb\wp-color-sync.log`                          | Where the run log is written |
 
 ## Matching the Windows taskbar (TranslucentTB)
 
@@ -127,7 +167,7 @@ Store), which **owns** the taskbar background so the color actually holds.
    rewrites `desktop_appearance.color` to the bar's color on every wallpaper change, and
    TranslucentTB hot-reloads. So the **taskbar tracks the wallpaper right alongside the bar**.
 
-Add a Startup shortcut for TranslucentTB (and the watcher) so it all comes back at login.
+Add a Startup shortcut for TranslucentTB so it comes back at login too.
 
 ### A note on the Windows accent (`-SetWindowsAccent`, off by default)
 
@@ -137,12 +177,28 @@ broadcasting `ImmersiveColorSet` — makes tiling WMs like **komorebi re-tile ev
 each change. It's off by default for that reason; enable it only if you want the title-bar
 tint and don't mind the re-tile.
 
-## Notes
+## Troubleshooting
 
-- Multi-monitor wallpapers: the color is taken from `Monitor0`. Per-monitor tinting is a
-  possible future enhancement.
-- Want it on komorebi-bar instead of YASB? See the sibling project:
-  [komorebi-bar-wallpaper-engine-color-sync](https://github.com/brendanwelsh/komorebi-bar-wallpaper-engine-color-sync).
+| Symptom | Fix |
+|---|---|
+| **Bar color never changes** | Make sure `watch_stylesheet: true` is in `config.yaml`, the `WP-SYNC` block exists in `styles.css`, and run `…ps1 -Once -Verbose` to see what it did. Check the log at `%USERPROFILE%\.config\yasb\wp-color-sync.log`. |
+| **"styles.css not found" / wrong path** | Pass `-StylesPath` to point at your actual stylesheet. |
+| **"config.json not found"** | Steam is probably on another drive/library — pass `-WeConfig "D:\SteamLibrary\steamapps\common\wallpaper_engine\config.json"`. |
+| **Color looks muddy or wrong** | That wallpaper has no scheme color, so it's being sampled. Set a scheme color for it in Wallpaper Engine (it takes priority), or tune `-Saturation` / `-Lightness`. |
+| **A plain/gray wallpaper got tinted a weird hue** | Raise `-ChromaThreshold` so near-grays are left muted instead of pushed toward a color. |
+| **Taskbar isn't matching** | TranslucentTB must be installed, running, and have `desktop_appearance.accent` set to `opaque`. Confirm the path in `-TranslucentTBSettings` exists. |
+| **Nothing happens at login** | Re-run `install.ps1`, confirm the shortcut is in `shell:startup`, and check the log. The watcher starts hidden, so there's no window — the log is how you confirm it's alive. |
+| **"running scripts is disabled on this system"** | Launch with `-ExecutionPolicy Bypass` (as shown above); the script itself isn't installed into your policy. |
+| **I don't use komorebi** | The bar background still tints. The second managed line targets komorebi's workspace bubble (`.komorebi-workspaces .ws-btn.active`); with no komorebi widget it's just a harmless no-op. |
+
+## Notes & limitations
+
+- **Multi-monitor:** the color is taken from `Monitor0`. Per-monitor tinting is a possible
+  future enhancement.
+- **Active-workspace accent** targets komorebi's workspace widget. The bar background works
+  for any YASB setup; the accent "bubble" only shows if you use that widget.
+- **Wallpaper Engine's own theming** may need a WE restart to pick up a written-back scheme
+  color (the bar/taskbar update immediately regardless).
 
 ## License
 
