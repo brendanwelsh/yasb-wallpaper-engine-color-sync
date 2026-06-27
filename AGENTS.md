@@ -27,7 +27,8 @@ No build/deps — Windows PowerShell 5.1+ and `System.Drawing` (built in).
   `Get-ActiveWallpaper` / `Get-ProjectScheme` (read WE config), `Get-DominantHex`
   (saturation-weighted preview sampling), `Convert-ToVibrant` (HSL normalize),
   `Set-YasbColor` (atomic write of the WP-SYNC block), `Set-TaskbarColor` (TranslucentTB),
-  `Set-WindowsAccent`, `Write-WeSchemeColor` (write-back), `Update-Color` (main loop body),
+  `Set-WindowsAccent`, `Set-FancyZonesColor` (PowerToys zone-highlight color, opt-in),
+  `Write-WeSchemeColor` (write-back), `Update-Color` (main loop body),
   bottom `while` loop drives a `FileSystemWatcher` on WE's config.
 - `examples/styles.css`, `examples/config.yaml` — reference YASB stylesheet (with the
   managed WP-SYNC block + active-workspace "bubble") and config.

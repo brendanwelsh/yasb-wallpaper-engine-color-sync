@@ -26,6 +26,9 @@ no extra work. It can also re-tint the **Windows taskbar** to match, via
   is yours.
 - 🟩 **Taskbar too** *(optional)* — drives [TranslucentTB](#matching-the-windows-taskbar-translucenttb)
   so the Windows taskbar tracks the wallpaper alongside the bar.
+- 🟦 **No bar? Still works** *(optional)* — drive the **PowerToys FancyZones** zone-highlight
+  color (`-SetFancyZonesColor`) and the **Windows accent** (`-SetWindowsAccent`) from the same
+  wallpaper color. Lets a bar-less setup (e.g. FancyZones instead of komorebi+YASB) still tint.
 - ⚡ **Idle-cheap** — event-driven via `FileSystemWatcher`; no polling, ~0% CPU at rest.
 
 ## How it works
@@ -141,7 +144,10 @@ your machine, then drop a shortcut to the `.vbs` into your Startup folder (`Win+
 | `-BlackThreshold`  | `12`                                                                    | Scheme colors darker than this (channel sum /765) are treated as unset → sample |
 | `-WriteBackToWallpaperEngine` | `$true`                                                      | Write the sampled color back into WE's scheme color (fills blank `0 0 0`) |
 | `-TranslucentTBSettings` | *(Store install path)*                                            | TranslucentTB `settings.json` — when it exists, the **taskbar** is re-tinted to match the bar |
-| `-SetWindowsAccent` | `$false`                                                               | Set the Windows accent (title bars). Off because it can't reliably color the Win11 taskbar and makes tiling WMs re-tile windows |
+| `-SetWindowsAccent` | `$false`                                                               | Set the Windows accent (title bars / Start). Off by default because it can't reliably color the Win11 taskbar and makes tiling WMs re-tile windows; safe to enable if you don't run a tiling WM |
+| `-SetYasbColor`    | `$true`                                                                | Write the YASB `styles.css` block (the original target). Pass `-SetYasbColor:$false` if you no longer run YASB |
+| `-SetFancyZonesColor` | `$false`                                                            | Drive PowerToys FancyZones' zone-highlight color from the accent (shows while dragging a window over a zone). FancyZones hot-reloads `settings.json` |
+| `-FancyZonesSettings` | *(PowerToys default path)*                                          | FancyZones `settings.json` location (only used with `-SetFancyZonesColor`) |
 | `-BackgroundAlpha` | `235`                                                                   | Bar background opacity, 0–255 |
 | `-Once`            | *(off)*                                                                 | Apply once and exit instead of watching |
 | `-LogFile`         | `%USERPROFILE%\.config\yasb\wp-color-sync.log`                          | Where the run log is written |

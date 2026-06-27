@@ -20,6 +20,10 @@
   result, then written between the WP-SYNC markers in styles.css (bar background +
   a lighter active-workspace bubble). Everything outside those markers is yours.
 
+  The same lighter accent is also pushed to komorebi's focused-window border
+  (single/stack/monocle) via komorebic, live and without a retile, so the tiling
+  border tracks the wallpaper too (-SetKomorebiBorder, on by default).
+
   When the color came from sampling, it is also written back into Wallpaper Engine's
   per-wallpaper scheme color (-WriteBackToWallpaperEngine, on by default), so WE's own
   theming matches and the blank "0 0 0" wallpapers get filled in. A one-time backup of
@@ -72,6 +76,26 @@ param(
   # tiling WMs (komorebi) re-tile every window, which shifts your layout on each wallpaper
   # change. Enable only if your taskbar actually takes the accent and the retile is OK.
   [bool]$SetWindowsAccent = $false,
+
+  # Also drive komorebi's focused-window border color from the accent, so the tiling
+  # border tracks the wallpaper just like the bar and the active-workspace bubble.
+  # Live via komorebic (no retile); silently no-ops if komorebi/komorebic isn't running.
+  [bool]$SetKomorebiBorder = $true,
+
+  # komorebic executable (on PATH for a standard komorebi install).
+  [string]$KomorebicPath = "komorebic.exe",
+
+  # Write the YASB styles.css managed block (the original target). On by default for
+  # upstream users; pass -SetYasbColor:$false if you no longer run YASB.
+  [bool]$SetYasbColor = $true,
+
+  # Also drive PowerToys FancyZones' zone-highlight color (the fill shown while you drag a
+  # window over a zone) from the accent, so the snap overlay tracks the wallpaper too.
+  # Opt-in. FancyZones hot-reloads settings.json, so it shows on the next drag.
+  [bool]$SetFancyZonesColor = $false,
+
+  # PowerToys FancyZones settings.json (only used when -SetFancyZonesColor).
+  [string]$FancyZonesSettings = "$env:LOCALAPPDATA\Microsoft\PowerToys\FancyZones\settings.json",
 
   [int]$BackgroundAlpha = 235,
 
@@ -333,6 +357,25 @@ function Set-TaskbarColor([string]$hex) {
   } catch { Log "set taskbar color failed: $_" }
 }
 
+# --- Apply to komorebi window borders -----------------------------------------
+
+# Push the accent color to komorebi's focused-window border kinds (single/stack/monocle)
+# via komorebic, so the tiling border matches the bar/wallpaper. Live and cheap (just a
+# border repaint, no retile). The unfocused border is left as configured in komorebi.json.
+# All output is swallowed and errors are caught, so this is a no-op when komorebi is down.
+function Set-KomorebiBorder([string]$hex) {
+  if (-not $hex) { return }
+  try {
+    $r = [Convert]::ToInt32($hex.Substring(1,2),16)
+    $g = [Convert]::ToInt32($hex.Substring(3,2),16)
+    $b = [Convert]::ToInt32($hex.Substring(5,2),16)
+    foreach ($kind in 'single','stack','monocle') {
+      & $KomorebicPath border-colour -w $kind $r $g $b *> $null
+    }
+    Log "set komorebi border -> $hex"
+  } catch { Log "set komorebi border failed: $_" }
+}
+
 # --- Apply to the Windows accent color (taskbar + titlebars) ------------------
 
 function Set-WindowsAccent([string]$hex) {
@@ -365,6 +408,26 @@ function Set-WindowsAccent([string]$hex) {
   } catch { Log "set Windows accent failed: $_" }
 }
 
+# --- Apply to PowerToys FancyZones --------------------------------------------
+
+# Push the accent into FancyZones' zone-highlight color (the fill shown while a window is
+# dragged over a zone). Only that one settings key is rewritten; everything else in
+# settings.json is preserved. PowerToys watches the file and hot-reloads, so the new color
+# appears on the next drag (worst case, after the next PowerToys restart). No-ops cleanly
+# if PowerToys isn't installed or the key isn't present.
+function Set-FancyZonesColor([string]$hex) {
+  if (-not $hex -or -not (Test-Path $FancyZonesSettings)) { return }
+  try {
+    $json = [System.IO.File]::ReadAllText($FancyZonesSettings, [System.Text.UTF8Encoding]::new($false))
+    $pattern = '("fancyzones_zoneHighlightColor"\s*:\s*\{\s*"value"\s*:\s*")#?[0-9A-Fa-f]{6,8}(")'
+    if (-not [regex]::IsMatch($json, $pattern)) { Log "FancyZones highlight key not found; skipping"; return }
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] { param($m) $m.Groups[1].Value + $hex + $m.Groups[2].Value }
+    $json = [regex]::Replace($json, $pattern, $evaluator)
+    [System.IO.File]::WriteAllText($FancyZonesSettings, $json, (New-Object System.Text.UTF8Encoding($false)))
+    Log "set FancyZones highlight -> $hex"
+  } catch { Log "set FancyZones color failed: $_" }
+}
+
 # --- Main --------------------------------------------------------------------
 
 $script:lastFile = ''
@@ -389,9 +452,13 @@ function Update-Color {
     $accentHex = Convert-ToVibrant $hex ([math]::Min(0.62, $Lightness + 0.24))  # lighter bubble that pops on the bar
     $script:lastFile = $wp.File   # set before write-back so our own config write doesn't re-trigger
     if ($barHex -ne $script:lastHex) {
-      if (Set-YasbColor $barHex $accentHex) { Log "$name  ->  bar $barHex / active $accentHex  ($source)"; $script:lastHex = $barHex }
+      if ($SetYasbColor)       { Set-YasbColor $barHex $accentHex | Out-Null }
       Set-TaskbarColor $barHex
-      if ($SetWindowsAccent) { Set-WindowsAccent $accentHex }   # brighter shade so the dark-mode taskbar reads as a clearer color
+      if ($SetKomorebiBorder)  { Set-KomorebiBorder $accentHex }   # tiling border matches the active-workspace bubble
+      if ($SetFancyZonesColor) { Set-FancyZonesColor $accentHex }  # FancyZones snap overlay matches the wallpaper
+      if ($SetWindowsAccent)   { Set-WindowsAccent $accentHex }    # brighter shade so the dark-mode taskbar reads as a clearer color
+      Log "$name  ->  bar $barHex / accent $accentHex  ($source)"
+      $script:lastHex = $barHex
     }
     # Fill in WE's blank ("0 0 0") scheme color with what we sampled, so WE matches the bar.
     if ($sampled -and $WriteBackToWallpaperEngine) {
